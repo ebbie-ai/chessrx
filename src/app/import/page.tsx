@@ -17,7 +17,7 @@ import {
   getPlayerRating,
   ChessComApiError,
 } from '@/lib/chesscom-api'
-import { IMPORTED_GAMES_KEY } from '@/lib/game-analyzer'
+import { IMPORTED_GAMES_KEY, IMPORTED_PUZZLES_KEY } from '@/lib/game-analyzer'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,8 +90,9 @@ export default function ImportPage() {
   const handleStartTraining = useCallback(() => {
     if (!fetchedData || fetchedData.games.length === 0) return
 
-    // Save games to localStorage for the train page to analyze
+    // Clear old puzzles and save new games for analysis
     try {
+      localStorage.removeItem(IMPORTED_PUZZLES_KEY)
       const toSave = fetchedData.games.map((g) => ({
         parsed: g.parsed,
         chesscomGame: g.chesscomGame,
