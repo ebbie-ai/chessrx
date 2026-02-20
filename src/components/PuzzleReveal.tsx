@@ -25,34 +25,9 @@ export function PuzzleReveal({
   const [aiExplanation, setAiExplanation] = useState<string | null>(null)
   const [explanationLoading, setExplanationLoading] = useState(false)
 
-  // Fetch AI explanation on mount
-  useEffect(() => {
-    // Only fetch for imported puzzles that have the extended fields
-    if (!puzzle.playerMove) return
-
-    setExplanationLoading(true)
-    fetch('/api/explain', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fen: puzzle.fen,
-        bestMove: puzzle.bestMove,
-        playerMove: puzzle.playerMove,
-        evalBefore: puzzle.evalBefore ?? 0,
-        evalAfter: puzzle.evalAfter ?? 0,
-        side: puzzle.fen.includes(' b ') ? 'black' : 'white',
-        moveNumber: 0,
-        opponent: puzzle.opponent ?? 'opponent',
-        pattern: puzzle.pattern ?? 'mistake',
-      }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.explanation) setAiExplanation(data.explanation)
-      })
-      .catch(() => { /* fall back to template explanation */ })
-      .finally(() => setExplanationLoading(false))
-  }, [puzzle])
+  // AI explanations disabled for now — need to improve prompt accuracy
+  // before enabling. Template explanations used as fallback.
+  // See issue #8 for details.
 
   const diff = DIFFICULTY_STYLES[puzzle.difficulty]
 
