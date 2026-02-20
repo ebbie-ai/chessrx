@@ -264,6 +264,8 @@ export async function analyzeGames(
           ? ('white' as const)
           : ('black' as const)
 
+      console.log(`[analyzer] Game ${gi + 1}: ${chesscomGame.white.username} vs ${chesscomGame.black.username} | username="${username}" | playedAs=${playedAs}`)
+
       const opponent =
         playedAs === 'white' ? chesscomGame.black.username : chesscomGame.white.username
       const opponentRating =
@@ -354,6 +356,8 @@ export async function analyzeGames(
             opening: parsed.opening,
             explanation,
           }
+
+          console.log(`[analyzer] PUZZLE FOUND: vs ${opponent} | move ${move.moveNumber} | side=${move.side} | playedAs=${playedAs} | fen turn=${move.fenBefore.split(' ')[1]} | delta=${delta.toFixed(1)} | bestMove=${eb.bestMove}`)
 
           criticalPositions.push(critical)
           if (delta >= 2.0) blunders++
