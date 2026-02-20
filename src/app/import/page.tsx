@@ -114,12 +114,22 @@ export default function ImportPage() {
     let puzzleCounter = 0
 
     try {
-      const result = await analyzeGames(
-        fetchedData.games.map((g) => ({
+      // Shuffle games so the first puzzle isn't always the most recent game
+      const gamesToAnalyze = fetchedData.games
+        .map((g) => ({
           parsed: g.parsed,
           chesscomGame: g.chesscomGame,
           username: fetchedData.player.username,
-        })),
+        }))
+      for (let i = gamesToAnalyze.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        const tmp = gamesToAnalyze[i]!
+        gamesToAnalyze[i] = gamesToAnalyze[j]!
+        gamesToAnalyze[j] = tmp
+      }
+
+      const result = await analyzeGames(
+        gamesToAnalyze,
         {
           depth: 12,
           evalThreshold: 1.0,
