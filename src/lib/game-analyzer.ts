@@ -293,9 +293,10 @@ export async function analyzeGames(
         if (move.side !== playedAs) continue
 
         // Skip if game is already heavily decided at this point
-        // (to avoid flagging moves in won/lost positions)
+        // A position at ±4.0 is essentially won/lost for club players —
+        // no point generating puzzles from positions with no realistic saving move
         const cached = evalCache.get(move.fenBefore)
-        if (cached && Math.abs(cached.evaluation) > 7) continue
+        if (cached && Math.abs(cached.evaluation) > 4) continue
 
         onProgress?.({
           gameIndex: gi,
@@ -308,6 +309,10 @@ export async function analyzeGames(
         // Run sequentially — single Stockfish worker can't handle parallel requests
         const eb = await analyzeOrCache(move.fenBefore)
         const ea = await analyzeOrCache(move.fen)
+
+        // Skip if the position is already lost for the player (no good puzzle)
+        const evalForPlayer = move.side === 'white' ? eb.evaluation : -eb.evaluation
+        if (evalForPlayer < -4.0) continue
 
         const delta = evalDeltaForSide(eb.evaluation, ea.evaluation, move.side)
 

@@ -71,6 +71,7 @@ export function PuzzleBoard({ puzzle, onSolve, onNext, isLastPuzzle }: PuzzleBoa
     setHighlightSquares({})
     setOptionSquares({})
     setSelectedSquare(null)
+    setHintUsed(false)
   }, [puzzle.id, puzzle.fen])
 
   // Kick off Stockfish analysis when ready or puzzle changes
@@ -219,6 +220,20 @@ export function PuzzleBoard({ puzzle, onSolve, onNext, isLastPuzzle }: PuzzleBoa
     onSquareClick(square)
   }
 
+  const [hintUsed, setHintUsed] = useState(false)
+
+  function handleHint() {
+    if (status === 'correct' || status === 'revealed') return
+    const { from } = parseUciMove(puzzle.bestMove)
+    setHintUsed(true)
+    setHighlightSquares({
+      [from]: {
+        background: 'rgba(255,200,50,0.45)',
+        borderRadius: '50%',
+      },
+    })
+  }
+
   function handleReveal() {
     setStatus('revealed')
     const { from, to } = parseUciMove(puzzle.bestMove)
@@ -240,12 +255,22 @@ export function PuzzleBoard({ puzzle, onSolve, onNext, isLastPuzzle }: PuzzleBoa
         <div className="mb-3 flex w-full items-center justify-between px-1">
           <TurnBadge turn={game.turn()} />
           {!isResolved && (
-            <button
-              onClick={handleReveal}
-              className="text-xs text-slate-700 underline underline-offset-2 transition-colors hover:text-slate-400"
-            >
-              Show answer
-            </button>
+            <div className="flex items-center gap-3">
+              {!hintUsed && (
+                <button
+                  onClick={handleHint}
+                  className="text-xs text-amber-600/70 underline underline-offset-2 transition-colors hover:text-amber-400"
+                >
+                  Hint
+                </button>
+              )}
+              <button
+                onClick={handleReveal}
+                className="text-xs text-slate-700 underline underline-offset-2 transition-colors hover:text-slate-400"
+              >
+                Show answer
+              </button>
+            </div>
           )}
         </div>
 
