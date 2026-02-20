@@ -8,6 +8,7 @@
  */
 
 import type { ParsedGame } from './pgn-parser'
+import { detectTactics } from './tactics-detector'
 import type { ChessComGame } from './chesscom-api'
 import type { Puzzle, Difficulty } from '@/types/puzzle'
 import { formatPgnDate } from './pgn-parser'
@@ -314,15 +315,15 @@ export async function analyzeGames(
           const difficulty = classifyDifficulty(delta, move.clockAfter)
           const pattern = classifyPattern(delta, move.clockAfter)
           const dateStr = parsed.date ? formatPgnDate(parsed.date) : ''
-          const explanation = generateExplanation(
-            delta,
+          // Use tactical pattern detection for explanation
+          const tactics = detectTactics(
+            move.fenBefore,
+            eb.bestMove,
+            move.uci,
             eb.evaluation,
             ea.evaluation,
-            move.side,
-            move.moveNumber,
-            move.clockAfter,
-            opponent
           )
+          const explanation = tactics.explanation
 
           const critical: CriticalPosition = {
             fen: move.fenBefore,
@@ -335,7 +336,7 @@ export async function analyzeGames(
             side: move.side,
             clockTime: move.clockAfter,
             difficulty,
-            pattern,
+            pattern: tactics.theme !== 'unknown' && tactics.theme !== 'positional' ? tactics.theme : pattern,
             opponent,
             opponentRating,
             date: dateStr,

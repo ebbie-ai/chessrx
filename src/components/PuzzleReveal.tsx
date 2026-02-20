@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
 import type { Puzzle } from '@/types/puzzle'
 import { DIFFICULTY_STYLES } from '@/lib/chess-utils'
@@ -22,12 +21,7 @@ export function PuzzleReveal({
   isLastPuzzle,
   className,
 }: PuzzleRevealProps) {
-  const [aiExplanation, setAiExplanation] = useState<string | null>(null)
-  const [explanationLoading, setExplanationLoading] = useState(false)
-
-  // AI explanations disabled for now — need to improve prompt accuracy
-  // before enabling. Template explanations used as fallback.
-  // See issue #8 for details.
+  // Explanations are now generated at analysis time via tactics-detector.ts
 
   const diff = DIFFICULTY_STYLES[puzzle.difficulty]
 
@@ -112,18 +106,10 @@ export function PuzzleReveal({
       </div>
 
       {/* Explanation */}
-      <div className="mb-5">
-        {explanationLoading ? (
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <div className="h-3 w-3 animate-spin rounded-full border border-white/10 border-t-teal-400" />
-            Analyzing position…
-          </div>
-        ) : (
-          <p className="text-sm leading-relaxed text-slate-300">
-            {aiExplanation ?? puzzle.explanation}
-          </p>
-        )}
-      </div>
+      {/* Explanation */}
+      <p className="mb-5 text-sm leading-relaxed text-slate-300">
+        {puzzle.explanation}
+      </p>
 
       {/* Attempts */}
       {attemptCount > 1 && (
