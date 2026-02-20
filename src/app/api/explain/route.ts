@@ -55,7 +55,7 @@ Do NOT mention the evaluation numbers. Do NOT start with "The best move" — var
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20250414',
+        model: 'claude-3-haiku-20240307',
         max_tokens: 200,
         messages: [
           { role: 'user', content: prompt },
@@ -67,7 +67,7 @@ Do NOT mention the evaluation numbers. Do NOT start with "The best move" — var
       const errText = await response.text()
       console.error('Anthropic API error:', response.status, errText)
       return NextResponse.json(
-        { error: 'Explanation generation failed' },
+        { error: `Explanation generation failed: ${response.status}`, detail: errText },
         { status: 502 }
       )
     }
