@@ -21,11 +21,12 @@ interface PuzzleBoardProps {
   puzzle: Puzzle
   onSolve: () => void
   onNext: () => void
+  isLastPuzzle?: boolean
 }
 
 const BOARD_MAX = 720
 
-export function PuzzleBoard({ puzzle, onSolve, onNext }: PuzzleBoardProps) {
+export function PuzzleBoard({ puzzle, onSolve, onNext, isLastPuzzle }: PuzzleBoardProps) {
   const [game, setGame] = useState(() => new Chess(puzzle.fen))
   const [status, setStatus] = useState<PuzzleStatus>('idle')
   const [attemptCount, setAttemptCount] = useState(0)
@@ -294,6 +295,7 @@ export function PuzzleBoard({ puzzle, onSolve, onNext }: PuzzleBoardProps) {
             wasCorrect={status === 'correct'}
             attemptCount={attemptCount}
             onNext={onNext}
+            isLastPuzzle={isLastPuzzle}
           />
         ) : (
           <PuzzleInfoPanel

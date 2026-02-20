@@ -38,22 +38,37 @@ export default function TrainPage() {
     Array<{ id: string; correct: boolean }>
   >([])
 
-  // Load imported puzzles from localStorage (client-side only)
+  // Load imported puzzles from localStorage and poll for new ones (streaming UX)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(IMPORTED_PUZZLES_KEY)
-      if (raw) {
-        const imported = JSON.parse(raw) as Puzzle[]
-        if (Array.isArray(imported) && imported.length > 0) {
-          setPuzzles(imported)
-          setHasImported(true)
-          const first = imported[0]
-          if (first) setCurrentPuzzle(first)
+    function loadFromStorage() {
+      try {
+        const raw = localStorage.getItem(IMPORTED_PUZZLES_KEY)
+        if (raw) {
+          const imported = JSON.parse(raw) as Puzzle[]
+          if (Array.isArray(imported) && imported.length > 0) {
+            setPuzzles((prev) => {
+              // Only update if count changed (new puzzles arrived)
+              if (prev.length === imported.length && prev[0]?.id === imported[0]?.id) return prev
+              return imported
+            })
+            setHasImported(true)
+            // Set first puzzle only on initial load
+            setCurrentPuzzle((prev) => {
+              if (prev.id.startsWith('imported_')) return prev // already on imported puzzle
+              const first = imported[0]
+              return first ?? prev
+            })
+          }
         }
+      } catch {
+        // localStorage unavailable or corrupt
       }
-    } catch {
-      // localStorage unavailable or corrupt — use sample puzzles
     }
+
+    loadFromStorage()
+    // Poll every 2s for new puzzles arriving from ongoing analysis
+    const interval = setInterval(loadFromStorage, 2000)
+    return () => clearInterval(interval)
   }, [])
 
   const handleSolve = useCallback(() => {
@@ -61,15 +76,19 @@ export default function TrainPage() {
     setSessionHistory((h) => [...h, { id: currentPuzzle.id, correct: true }])
   }, [currentPuzzle.id])
 
+  const isLastPuzzle = (() => {
+    const list = hasImported ? puzzles : PUZZLES
+    const idx = list.findIndex((p) => p.id === currentPuzzle.id)
+    return list.length <= 1 || idx === list.length - 1
+  })()
+
   const handleNext = useCallback(() => {
     setCurrentPuzzle((prev) => {
-      // Use the latest puzzles from state via ref-like access
       const list = hasImported ? puzzles : PUZZLES
       const idx = list.findIndex((p) => p.id === prev.id)
-      // If current puzzle not found in list (stale ID), just go to first
       const nextIdx = idx === -1 ? 0 : (idx + 1) % list.length
       const next = list[nextIdx]
-      if (!next) return prev // safety: don't crash
+      if (!next || next.id === prev.id) return prev // no next available
       return next
     })
   }, [hasImported, puzzles])
@@ -156,6 +175,7 @@ export default function TrainPage() {
           puzzle={currentPuzzle}
           onSolve={handleSolve}
           onNext={handleNext}
+          isLastPuzzle={isLastPuzzle}
         />
 
         {/* Tips footer */}

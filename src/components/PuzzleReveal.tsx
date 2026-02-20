@@ -9,6 +9,7 @@ interface PuzzleRevealProps {
   wasCorrect: boolean
   attemptCount: number
   onNext: () => void
+  isLastPuzzle?: boolean
   className?: string
 }
 
@@ -17,6 +18,7 @@ export function PuzzleReveal({
   wasCorrect,
   attemptCount,
   onNext,
+  isLastPuzzle,
   className,
 }: PuzzleRevealProps) {
   const diff = DIFFICULTY_STYLES[puzzle.difficulty]
@@ -115,21 +117,35 @@ export function PuzzleReveal({
       )}
 
       {/* Next button */}
-      <button
-        onClick={onNext}
-        className="group flex w-full items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-3 text-sm font-semibold text-white transition-all duration-150 hover:bg-slate-600 active:scale-95"
-      >
-        Next Puzzle
-        <svg
-          className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
+      {isLastPuzzle ? (
+        <div className="flex flex-col gap-2">
+          <div className="rounded-lg border border-white/5 bg-white/[0.03] px-4 py-3 text-center text-sm text-slate-500">
+            🎉 You&apos;ve completed all available puzzles!
+          </div>
+          <a
+            href="/import"
+            className="group flex w-full items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-3 text-sm font-semibold text-white transition-all duration-150 hover:bg-slate-600 active:scale-95"
+          >
+            Import More Games
+          </a>
+        </div>
+      ) : (
+        <button
+          onClick={onNext}
+          className="group flex w-full items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-3 text-sm font-semibold text-white transition-all duration-150 hover:bg-slate-600 active:scale-95"
         >
-          <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
+          Next Puzzle
+          <svg
+            className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }
