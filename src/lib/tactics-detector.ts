@@ -229,17 +229,20 @@ export function detectTactics(
   } else {
     // Generic positional explanation
     if (isCapture && targetPiece) {
-      explanation = `Taking with the ${movingPieceName} on ${squareName(to)} is the most accurate continuation in this position.`
+      explanation = `Capturing the ${pieceName(targetPiece.type)} on ${squareName(to)} with the ${movingPieceName} is the strongest move here.`
     } else {
-      explanation = `Moving the ${movingPieceName} to ${squareName(to)} improves ${activeSide}'s position — look for the tactical opportunities this creates.`
+      explanation = `The key move is ${movingPieceName} to ${squareName(to)} — this strengthens your position and creates problems for your opponent.`
     }
     themes.push('positional')
   }
 
-  // Add eval context for debugging
+  // Add eval context for debugging (shown from solver's perspective)
   if (evalBefore !== undefined && evalAfter !== undefined) {
-    const delta = Math.abs(evalAfter - evalBefore)
-    explanation += ` (eval: ${evalBefore > 0 ? '+' : ''}${evalBefore.toFixed(1)} → ${evalAfter > 0 ? '+' : ''}${evalAfter.toFixed(1)}, ${delta.toFixed(1)} pawn swing)`
+    const flip = activeColor === 'b' ? -1 : 1
+    const eb = evalBefore * flip
+    const ea = evalAfter * flip
+    const delta = Math.abs(ea - eb)
+    explanation += ` (eval: ${eb > 0 ? '+' : ''}${eb.toFixed(1)} → ${ea > 0 ? '+' : ''}${ea.toFixed(1)}, ${delta.toFixed(1)} pawn swing)`
   }
 
   return {
