@@ -427,6 +427,9 @@ export function criticalPositionToPuzzle(pos: CriticalPosition, index: number): 
 /** localStorage key for persisting imported puzzles. */
 export const IMPORTED_PUZZLES_KEY = 'chessrx_imported_puzzles'
 
+/** localStorage key for persisting fetched games (pre-analysis). */
+export const IMPORTED_GAMES_KEY = 'chessrx_imported_games'
+
 /** Save puzzles to localStorage. */
 export function saveImportedPuzzles(puzzles: Puzzle[]): void {
   try {
