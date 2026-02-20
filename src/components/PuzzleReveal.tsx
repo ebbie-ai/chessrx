@@ -111,11 +111,30 @@ export function PuzzleReveal({
         </span>
       </div>
 
-      {/* Explanation */}
+      {/* What you played */}
+      {puzzle.playerMoveSan && (
+        <div className="mb-3 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 text-sm">
+          <span className="text-slate-500">You played </span>
+          <span className="font-semibold text-red-400">{puzzle.playerMoveSan}</span>
+        </div>
+      )}
+
       {/* Explanation */}
       <p className="mb-5 text-sm leading-relaxed text-slate-300">
         {puzzle.explanation}
       </p>
+
+      {/* Link to original game */}
+      {puzzle.gameUrl && (
+        <a
+          href={puzzle.gameUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-4 inline-flex items-center gap-1.5 text-xs text-slate-600 underline underline-offset-2 transition-colors hover:text-slate-400"
+        >
+          View full game on Chess.com ↗
+        </a>
+      )}
 
       {/* Attempts */}
       {attemptCount > 1 && (

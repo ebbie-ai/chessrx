@@ -33,6 +33,10 @@ export interface Puzzle {
   evalAfter?: number
   /** Opening name (from ECO headers) */
   opening?: string
+  /** URL to the original game (Chess.com or Lichess) */
+  gameUrl?: string
+  /** The move the player actually played (SAN notation for display) */
+  playerMoveSan?: string
 }
 
 export type PuzzleStatus = 'idle' | 'incorrect' | 'correct' | 'revealed'

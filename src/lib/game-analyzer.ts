@@ -47,6 +47,8 @@ export interface CriticalPosition {
   playedAs: 'white' | 'black'
   opening?: string
   explanation: string
+  gameUrl?: string
+  playerMoveSan?: string
 }
 
 export interface AnalysisProgress {
@@ -355,6 +357,8 @@ export async function analyzeGames(
             playedAs,
             opening: parsed.opening,
             explanation,
+            gameUrl: chesscomGame.url,
+            playerMoveSan: move.san,
           }
 
           console.log(`[analyzer] PUZZLE FOUND: vs ${opponent} | move ${move.moveNumber} | side=${move.side} | playedAs=${playedAs} | fen turn=${move.fenBefore.split(' ')[1]} | delta=${delta.toFixed(1)} | bestMove=${eb.bestMove}`)
@@ -437,6 +441,8 @@ export function criticalPositionToPuzzle(pos: CriticalPosition, index: number): 
     evalBefore: pos.evalBefore,
     evalAfter: pos.evalAfter,
     opening: pos.opening,
+    gameUrl: pos.gameUrl,
+    playerMoveSan: pos.playerMoveSan,
   }
 }
 
