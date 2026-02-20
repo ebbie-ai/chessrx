@@ -237,12 +237,14 @@ export function detectTactics(
   }
 
   // Add eval context for debugging (shown from solver's perspective)
+  // evalBefore/evalAfter are normalized to White's perspective by the analyzer.
+  // Flip for Black puzzles so the solver sees positive = good for them.
   if (evalBefore !== undefined && evalAfter !== undefined) {
     const flip = activeColor === 'b' ? -1 : 1
-    const eb = evalBefore * flip
-    const ea = evalAfter * flip
-    const delta = Math.abs(ea - eb)
-    explanation += ` (eval: ${eb > 0 ? '+' : ''}${eb.toFixed(1)} → ${ea > 0 ? '+' : ''}${ea.toFixed(1)}, ${delta.toFixed(1)} pawn swing)`
+    const ebPlayer = evalBefore * flip
+    const eaPlayer = evalAfter * flip
+    const delta = Math.abs(eaPlayer - ebPlayer)
+    explanation += ` (eval: ${ebPlayer > 0 ? '+' : ''}${ebPlayer.toFixed(1)} → ${eaPlayer > 0 ? '+' : ''}${eaPlayer.toFixed(1)}, ${delta.toFixed(1)} pawn swing)`
   }
 
   return {

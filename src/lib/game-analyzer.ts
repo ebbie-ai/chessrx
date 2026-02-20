@@ -155,7 +155,11 @@ class StockfishManager {
           this.worker!.removeEventListener('message', handler)
           const bm = line.split(' ')[1]
           if (bm !== undefined && bm !== '(none)') bestMove = bm
-          resolve({ fen, evaluation, bestMove, depth })
+          // Stockfish reports score from side-to-move's perspective.
+          // Normalize to White's perspective for consistent comparisons.
+          const sideToMove = fen.split(' ')[1]
+          const normalizedEval = sideToMove === 'b' ? -evaluation : evaluation
+          resolve({ fen, evaluation: normalizedEval, bestMove, depth })
         }
       }
 
