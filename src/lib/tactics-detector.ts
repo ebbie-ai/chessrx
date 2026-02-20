@@ -243,8 +243,20 @@ export function detectTactics(
     const flip = activeColor === 'b' ? -1 : 1
     const ebPlayer = evalBefore * flip
     const eaPlayer = evalAfter * flip
-    const delta = Math.abs(eaPlayer - ebPlayer)
-    explanation += ` (eval: ${ebPlayer > 0 ? '+' : ''}${ebPlayer.toFixed(1)} → ${eaPlayer > 0 ? '+' : ''}${eaPlayer.toFixed(1)}, ${delta.toFixed(1)} pawn swing)`
+
+    const fmtEval = (v: number): string => {
+      if (v >= 90) return 'Mate'
+      if (v <= -90) return '-Mate'
+      return `${v > 0 ? '+' : ''}${v.toFixed(1)}`
+    }
+
+    // Don't show misleading swings involving mate sentinels
+    if (Math.abs(ebPlayer) >= 90 && Math.abs(eaPlayer) < 90) {
+      explanation += ` (you had a forced mate but played a move worth ${fmtEval(eaPlayer)})`
+    } else if (Math.abs(ebPlayer) < 90 || Math.abs(eaPlayer) < 90) {
+      const delta = Math.abs(eaPlayer - ebPlayer)
+      explanation += ` (eval: ${fmtEval(ebPlayer)} → ${fmtEval(eaPlayer)}, ${delta.toFixed(1)} pawn swing)`
+    }
   }
 
   return {
