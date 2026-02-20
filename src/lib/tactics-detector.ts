@@ -65,26 +65,33 @@ function getAttackedPieces(
 
 /** Check if a piece is undefended (no same-color piece protecting it) */
 function isUndefended(game: Chess, square: Square, color: Color): boolean {
-  // Check if any piece of the same color can move to this square
-  const allMoves = game.moves({ verbose: true })
-  // We need to check if any piece of `color` defends this square
-  // This is tricky — let's use a simpler approach:
-  // Remove the piece, place an opponent piece, see if any same-color piece can capture
-  const fen = game.fen()
-  const testGame = new Chess(fen)
-  const piece = testGame.get(square)
+  const piece = game.get(square)
   if (!piece) return true
 
-  // Check all same-color pieces for moves that could capture on this square
-  const board = testGame.board()
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const p = board[r]?.[c]
-      if (!p || p.color !== color || p.square === square) continue
-      const moves = testGame.moves({ square: p.square as Square, verbose: true })
-      if (moves.some((m) => m.to === square)) return false
+  // To check if `color` defends `square`, we need to see if any piece of
+  // `color` can capture on that square. chess.js only generates moves for
+  // the side to move, so we create a position where it's `color`'s turn.
+  const fenParts = game.fen().split(' ')
+  fenParts[1] = color // set side to move to the defending color
+  // Clear en passant to avoid issues
+  fenParts[3] = '-'
+
+  try {
+    const testGame = new Chess(fenParts.join(' '))
+    const board = testGame.board()
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = board[r]?.[c]
+        if (!p || p.color !== color || p.square === square) continue
+        const moves = testGame.moves({ square: p.square as Square, verbose: true })
+        if (moves.some((m) => m.to === square)) return false
+      }
     }
+  } catch {
+    // If FEN manipulation fails, assume defended (safer)
+    return false
   }
+
   return true
 }
 
