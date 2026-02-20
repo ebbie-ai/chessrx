@@ -420,6 +420,8 @@ export function criticalPositionToPuzzle(pos: CriticalPosition, index: number): 
     timeControl: pos.timeControl,
     playedAs: pos.playedAs,
     evalDelta: pos.evalDelta,
+    evalBefore: pos.evalBefore,
+    evalAfter: pos.evalAfter,
     opening: pos.opening,
   }
 }

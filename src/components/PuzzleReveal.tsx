@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
 import type { Puzzle } from '@/types/puzzle'
 import { DIFFICULTY_STYLES } from '@/lib/chess-utils'
@@ -21,6 +22,38 @@ export function PuzzleReveal({
   isLastPuzzle,
   className,
 }: PuzzleRevealProps) {
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null)
+  const [explanationLoading, setExplanationLoading] = useState(false)
+
+  // Fetch AI explanation on mount
+  useEffect(() => {
+    // Only fetch for imported puzzles that have the extended fields
+    if (!puzzle.playerMove) return
+
+    setExplanationLoading(true)
+    fetch('/api/explain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fen: puzzle.fen,
+        bestMove: puzzle.bestMove,
+        playerMove: puzzle.playerMove,
+        evalBefore: puzzle.evalBefore ?? 0,
+        evalAfter: puzzle.evalAfter ?? 0,
+        side: puzzle.fen.includes(' b ') ? 'black' : 'white',
+        moveNumber: 0,
+        opponent: puzzle.opponent ?? 'opponent',
+        pattern: puzzle.pattern ?? 'mistake',
+      }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.explanation) setAiExplanation(data.explanation)
+      })
+      .catch(() => { /* fall back to template explanation */ })
+      .finally(() => setExplanationLoading(false))
+  }, [puzzle])
+
   const diff = DIFFICULTY_STYLES[puzzle.difficulty]
 
   const resultLabel = wasCorrect
@@ -104,9 +137,18 @@ export function PuzzleReveal({
       </div>
 
       {/* Explanation */}
-      <p className="mb-5 text-sm leading-relaxed text-slate-300">
-        {puzzle.explanation}
-      </p>
+      <div className="mb-5">
+        {explanationLoading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="h-3 w-3 animate-spin rounded-full border border-white/10 border-t-teal-400" />
+            Analyzing position…
+          </div>
+        ) : (
+          <p className="text-sm leading-relaxed text-slate-300">
+            {aiExplanation ?? puzzle.explanation}
+          </p>
+        )}
+      </div>
 
       {/* Attempts */}
       {attemptCount > 1 && (

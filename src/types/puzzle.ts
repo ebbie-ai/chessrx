@@ -27,6 +27,10 @@ export interface Puzzle {
   playedAs?: 'white' | 'black'
   /** Eval drop that caused this puzzle (positive = bad for the player) */
   evalDelta?: number
+  /** Eval before the player's move */
+  evalBefore?: number
+  /** Eval after the player's move */
+  evalAfter?: number
   /** Opening name (from ECO headers) */
   opening?: string
 }
