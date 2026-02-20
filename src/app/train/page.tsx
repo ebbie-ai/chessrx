@@ -1,9 +1,11 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useCallback, useState } from 'react'
+import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 
-import { PUZZLES, getNextPuzzle } from '@/data/puzzles'
+import { PUZZLES } from '@/data/puzzles'
+import { IMPORTED_PUZZLES_KEY } from '@/lib/game-analyzer'
 import type { Puzzle } from '@/types/puzzle'
 
 // Dynamically import PuzzleBoard (no SSR) — required for chess.js & react-chessboard
@@ -23,6 +25,9 @@ const PuzzleBoard = dynamic(
 )
 
 export default function TrainPage() {
+  // Try to load imported puzzles from localStorage on mount
+  const [puzzles, setPuzzles] = useState<Puzzle[]>(PUZZLES)
+  const [hasImported, setHasImported] = useState(false)
   const [currentPuzzle, setCurrentPuzzle] = useState<Puzzle>(() => {
     const first = PUZZLES[0]
     if (!first) throw new Error('No puzzles available')
@@ -33,20 +38,44 @@ export default function TrainPage() {
     Array<{ id: string; correct: boolean }>
   >([])
 
+  // Load imported puzzles from localStorage (client-side only)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(IMPORTED_PUZZLES_KEY)
+      if (raw) {
+        const imported = JSON.parse(raw) as Puzzle[]
+        if (Array.isArray(imported) && imported.length > 0) {
+          setPuzzles(imported)
+          setHasImported(true)
+          const first = imported[0]
+          if (first) setCurrentPuzzle(first)
+        }
+      }
+    } catch {
+      // localStorage unavailable or corrupt — use sample puzzles
+    }
+  }, [])
+
   const handleSolve = useCallback(() => {
     setSolvedCount((c) => c + 1)
-    setSessionHistory((h) => [
-      ...h,
-      { id: currentPuzzle.id, correct: true },
-    ])
+    setSessionHistory((h) => [...h, { id: currentPuzzle.id, correct: true }])
   }, [currentPuzzle.id])
 
   const handleNext = useCallback(() => {
-    setCurrentPuzzle((p) => getNextPuzzle(p.id))
-  }, [])
+    setCurrentPuzzle((prev) => {
+      // Use the latest puzzles from state via ref-like access
+      const list = hasImported ? puzzles : PUZZLES
+      const idx = list.findIndex((p) => p.id === prev.id)
+      // If current puzzle not found in list (stale ID), just go to first
+      const nextIdx = idx === -1 ? 0 : (idx + 1) % list.length
+      const next = list[nextIdx]
+      if (!next) return prev // safety: don't crash
+      return next
+    })
+  }, [hasImported, puzzles])
 
-  const totalPuzzles = PUZZLES.length
-  const puzzleIndex = PUZZLES.findIndex((p) => p.id === currentPuzzle.id)
+  const totalPuzzles = puzzles.length
+  const puzzleIndex = puzzles.findIndex((p) => p.id === currentPuzzle.id)
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-slate-950">
@@ -56,7 +85,21 @@ export default function TrainPage() {
           <div>
             <h1 className="text-lg font-bold text-white">Puzzle Training</h1>
             <p className="mt-0.5 text-xs text-slate-500">
-              {puzzleIndex + 1} of {totalPuzzles} puzzles in this session
+              {hasImported ? (
+                <>
+                  <span className="text-teal-400">Your imported puzzles</span>
+                  {' · '}
+                  {puzzleIndex + 1} of {totalPuzzles}
+                </>
+              ) : (
+                <>
+                  {puzzleIndex + 1} of {totalPuzzles} sample puzzles
+                  {' · '}
+                  <Link href="/import" className="text-teal-400 hover:underline">
+                    Import your games
+                  </Link>
+                </>
+              )}
             </p>
           </div>
 
@@ -64,11 +107,7 @@ export default function TrainPage() {
           <div className="flex items-center gap-4">
             <SessionStat label="Solved" value={solvedCount} color="teal" />
             <div className="hidden h-6 w-px bg-white/5 sm:block" />
-            <SessionStat
-              label="Remaining"
-              value={totalPuzzles - puzzleIndex - (solvedCount > 0 ? 0 : 0)}
-              color="slate"
-            />
+            <SessionStat label="Remaining" value={totalPuzzles - puzzleIndex - 1} color="slate" />
           </div>
         </div>
 
@@ -87,7 +126,7 @@ export default function TrainPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Puzzle navigation breadcrumb */}
         <div className="mb-6 flex items-center gap-1.5">
-          {PUZZLES.map((p, i) => {
+          {puzzles.map((p, i) => {
             const isActive = p.id === currentPuzzle.id
             const isSolved = sessionHistory.some((h) => h.id === p.id && h.correct)
             const isPast = i < puzzleIndex
@@ -122,18 +161,9 @@ export default function TrainPage() {
         {/* Tips footer */}
         <div className="mt-12 border-t border-white/5 pt-6">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Tip
-              icon="🖱️"
-              text="Drag or click to move pieces"
-            />
-            <Tip
-              icon="↺"
-              text="Wrong moves reset automatically — keep trying"
-            />
-            <Tip
-              icon="⚡"
-              text="Stockfish analyzes the position in real time"
-            />
+            <Tip icon="🖱️" text="Drag or click to move pieces" />
+            <Tip icon="↺" text="Wrong moves reset automatically — keep trying" />
+            <Tip icon="⚡" text="Stockfish analyzes the position in real time" />
           </div>
         </div>
       </div>
@@ -159,9 +189,7 @@ function SessionStat({
       >
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-widest text-slate-600">
-        {label}
-      </div>
+      <div className="text-[10px] uppercase tracking-widest text-slate-600">{label}</div>
     </div>
   )
 }

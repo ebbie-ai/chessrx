@@ -4,15 +4,7 @@ const nextConfig = {
   // Required for chess-related WASM (Stockfish)
   // and to allow cross-origin worker if you host stockfish from CDN
   async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-        ],
-      },
-    ]
+    return []
   },
   webpack: (config) => {
     // Allow WASM files

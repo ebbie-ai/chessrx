@@ -8,9 +8,9 @@ export function Header() {
   const pathname = usePathname()
 
   const navLinks = [
+    { href: '/import', label: 'Import Games' },
     { href: '/train', label: 'Train' },
     { href: '/dashboard', label: 'Dashboard', disabled: true },
-    { href: '/games', label: 'My Games', disabled: true },
   ]
 
   return (

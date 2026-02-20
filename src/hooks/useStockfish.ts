@@ -15,9 +15,6 @@ export interface StockfishState {
   stop: () => void
 }
 
-const STOCKFISH_CDN =
-  'https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js'
-
 export function useStockfish(): StockfishState {
   const workerRef = useRef<Worker | null>(null)
   const [isReady, setIsReady] = useState(false)
@@ -27,85 +24,77 @@ export function useStockfish(): StockfishState {
   const [depth, setDepth] = useState(0)
 
   useEffect(() => {
-    let objectUrl: string | null = null
     let cancelled = false
 
-    // Fetch stockfish.js source and spin up a Blob worker to avoid CORS restrictions
-    fetch(STOCKFISH_CDN)
-      .then((r) => {
-        if (!r.ok) throw new Error('Failed to fetch Stockfish')
-        return r.text()
-      })
-      .then((code) => {
-        if (cancelled) return
+    try {
+      const worker = new Worker('/stockfish/stockfish-lite-single.js')
 
-        const blob = new Blob([code], { type: 'application/javascript' })
-        objectUrl = URL.createObjectURL(blob)
-        const worker = new Worker(objectUrl)
+      if (cancelled) {
+        worker.terminate()
+        return
+      }
 
-        worker.onmessage = (e: MessageEvent<string>) => {
-          const line = e.data
-          if (!line) return
+      worker.onmessage = (e: MessageEvent<string>) => {
+        const line = e.data
+        if (!line) return
 
-          // Engine ready
-          if (line === 'readyok') {
-            setIsReady(true)
-            return
+        // Engine ready
+        if (line === 'readyok') {
+          setIsReady(true)
+          return
+        }
+
+        // Score info line: "info depth 15 score cp 42 ..."
+        if (line.startsWith('info') && line.includes('score')) {
+          const depthMatch = line.match(/\bdepth (\d+)/)
+          const depthStr = depthMatch?.[1]
+          if (depthStr !== undefined) setDepth(parseInt(depthStr))
+
+          const cpMatch = line.match(/\bscore cp (-?\d+)/)
+          const cpStr = cpMatch?.[1]
+          if (cpStr !== undefined) {
+            setEvaluation(parseInt(cpStr) / 100)
           }
 
-          // Score info line: "info depth 15 score cp 42 ..."
-          if (line.startsWith('info') && line.includes('score')) {
-            const depthMatch = line.match(/\bdepth (\d+)/)
-            const depthStr = depthMatch?.[1]
-            if (depthStr !== undefined) setDepth(parseInt(depthStr))
-
-            const cpMatch = line.match(/\bscore cp (-?\d+)/)
-            const cpStr = cpMatch?.[1]
-            if (cpStr !== undefined) {
-              setEvaluation(parseInt(cpStr) / 100)
-            }
-
-            // Mate score: "score mate N"
-            const mateMatch = line.match(/\bscore mate (-?\d+)/)
-            const mateStr = mateMatch?.[1]
-            if (mateStr !== undefined) {
-              const mateMoves = parseInt(mateStr)
-              setEvaluation(mateMoves > 0 ? 999 : -999)
-            }
-          }
-
-          // Best move result
-          if (line.startsWith('bestmove')) {
-            const parts = line.split(' ')
-            const move = parts[1]
-            if (move && move !== '(none)') {
-              setBestMove(move)
-            }
-            setIsAnalyzing(false)
+          // Mate score: "score mate N"
+          const mateMatch = line.match(/\bscore mate (-?\d+)/)
+          const mateStr = mateMatch?.[1]
+          if (mateStr !== undefined) {
+            const mateMoves = parseInt(mateStr)
+            setEvaluation(mateMoves > 0 ? 999 : -999)
           }
         }
 
-        worker.onerror = (err) => {
-          console.warn('[Stockfish] Worker error:', err.message)
+        // Best move result
+        if (line.startsWith('bestmove')) {
+          const parts = line.split(' ')
+          const move = parts[1]
+          if (move && move !== '(none)') {
+            setBestMove(move)
+          }
+          setIsAnalyzing(false)
         }
+      }
 
-        // Initialize UCI protocol
-        worker.postMessage('uci')
-        worker.postMessage('setoption name Threads value 1')
-        worker.postMessage('setoption name Hash value 16')
-        worker.postMessage('isready')
+      worker.onerror = (err) => {
+        console.warn('[Stockfish] Worker error:', err.message)
+      }
 
-        workerRef.current = worker
-      })
-      .catch((err) => {
-        console.warn('[Stockfish] Failed to initialize:', err.message)
-      })
+      // Initialize UCI protocol
+      worker.postMessage('uci')
+      worker.postMessage('setoption name Threads value 1')
+      worker.postMessage('setoption name Hash value 16')
+      worker.postMessage('isready')
+
+      workerRef.current = worker
+    } catch (err) {
+      console.warn('[Stockfish] Failed to initialize:', err)
+    }
 
     return () => {
       cancelled = true
       workerRef.current?.terminate()
       workerRef.current = null
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [])
 

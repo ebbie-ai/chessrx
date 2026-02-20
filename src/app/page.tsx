@@ -52,10 +52,10 @@ export default function LandingPage() {
         {/* CTAs */}
         <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
           <Link
-            href="/train"
+            href="/import"
             className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-xl bg-teal-500 px-7 py-3.5 text-base font-bold text-slate-900 shadow-lg shadow-teal-500/25 transition-all duration-200 hover:bg-teal-400 hover:shadow-teal-400/40 active:scale-[0.97]"
           >
-            Get Started
+            Import Your Games
             <svg
               className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
               viewBox="0 0 16 16"
@@ -146,13 +146,13 @@ export default function LandingPage() {
             The only chess coach that knows your games
           </h2>
           <p className="mt-4 text-slate-500">
-            Try the training demo with sample puzzles — no sign-up needed.
+            Import your Chess.com games and train on your own blunders — no sign-up needed.
           </p>
           <Link
-            href="/train"
+            href="/import"
             className="mt-8 inline-flex items-center gap-2.5 rounded-xl bg-white px-8 py-3.5 text-base font-bold text-slate-900 transition-all duration-200 hover:bg-slate-100 active:scale-[0.97]"
           >
-            Open Training
+            Import Your Games
           </Link>
         </div>
       </section>
