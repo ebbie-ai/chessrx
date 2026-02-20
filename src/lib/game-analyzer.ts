@@ -357,7 +357,7 @@ export async function analyzeGames(
             playedAs,
             opening: parsed.opening,
             explanation,
-            gameUrl: chesscomGame.url,
+            gameUrl: `${chesscomGame.url}#${move.moveNumber}`,
             playerMoveSan: move.san,
           }
 
