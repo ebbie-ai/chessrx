@@ -95,6 +95,12 @@ export function PuzzleReveal({
           vs{' '}
           <span className="font-medium text-slate-400">{puzzle.opponent}</span>
         </span>
+        {puzzle.playedAs && (
+          <>
+            <span className="text-slate-700">·</span>
+            <span>played {puzzle.playedAs}</span>
+          </>
+        )}
       </div>
 
       {/* Pattern tag */}
