@@ -79,6 +79,8 @@ export interface AnalyzerOptions {
   skipOpeningMoves?: number
   /** Progress callback */
   onProgress?: (progress: AnalysisProgress) => void
+  /** Called when a game yields its best puzzle (for streaming UX) */
+  onPuzzleFound?: (puzzle: CriticalPosition) => void
 }
 
 // ── Stockfish worker manager ─────────────────────────────────────────────────
@@ -235,6 +237,7 @@ export async function analyzeGames(
     evalThreshold = 1.0,
     skipOpeningMoves = 8,
     onProgress,
+    onPuzzleFound,
   } = options
 
   const stockfish = new StockfishManager()
@@ -368,6 +371,18 @@ export async function analyzeGames(
             opening: parsed.opening,
             explanation: `Excellent! On move ${move.moveNumber} you found the engine's top choice, maintaining a ${Math.abs(ea.evaluation).toFixed(1)}-pawn advantage.`,
           })
+        }
+      }
+
+      // After analyzing all moves in this game, emit the best puzzle found
+      if (onPuzzleFound) {
+        const gameKey = `${opponent}_${parsed.date ? formatPgnDate(parsed.date) : ''}_${playedAs}`
+        const gamePuzzles = criticalPositions.filter(
+          (p) => `${p.opponent}_${p.date}_${p.playedAs}` === gameKey
+        )
+        if (gamePuzzles.length > 0) {
+          const best = gamePuzzles.reduce((a, b) => (b.evalDelta > a.evalDelta ? b : a))
+          onPuzzleFound(best)
         }
       }
     }

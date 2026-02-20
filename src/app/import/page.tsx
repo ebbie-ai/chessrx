@@ -58,6 +58,7 @@ export default function ImportPage() {
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
   const [fetchedData, setFetchedData] = useState<FetchedData | null>(null)
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null)
+  const [streamedPuzzles, setStreamedPuzzles] = useState<Puzzle[]>([])
 
   const abortRef = useRef(false)
 
@@ -108,6 +109,9 @@ export default function ImportPage() {
     setState('analyzing')
     setAnalysisProgress(null)
     setAnalysisData(null)
+    setStreamedPuzzles([])
+
+    let puzzleCounter = 0
 
     try {
       const result = await analyzeGames(
@@ -123,36 +127,34 @@ export default function ImportPage() {
           onProgress: (progress) => {
             if (!abortRef.current) setAnalysisProgress(progress)
           },
+          onPuzzleFound: (pos) => {
+            if (abortRef.current) return
+            const puzzle = criticalPositionToPuzzle(pos, puzzleCounter++)
+            setStreamedPuzzles((prev) => {
+              const updated = [...prev, puzzle]
+              // Save to localStorage incrementally so user can start training
+              saveImportedPuzzles(updated)
+              return updated
+            })
+          },
         }
       )
 
-      // Pick the best puzzle per game (largest eval delta) and shuffle
-      const byGame = new Map<string, typeof result.criticalPositions[0]>()
-      for (const pos of result.criticalPositions) {
-        const gameKey = `${pos.opponent}_${pos.date}_${pos.playedAs}`
-        const existing = byGame.get(gameKey)
-        if (!existing || pos.evalDelta > existing.evalDelta) {
-          byGame.set(gameKey, pos)
+      // Final save with shuffled order
+      setStreamedPuzzles((prev) => {
+        const shuffled = [...prev]
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          const tmp = shuffled[i]!
+          shuffled[i] = shuffled[j]!
+          shuffled[j] = tmp
         }
-      }
-      const deduped = Array.from(byGame.values())
-      // Fisher-Yates shuffle
-      for (let i = deduped.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        const tmp = deduped[i]!
-        deduped[i] = deduped[j]!
-        deduped[j] = tmp
-      }
-      const puzzles = deduped.map((pos, i) =>
-        criticalPositionToPuzzle(pos, i)
-      )
-
-      if (puzzles.length > 0) {
-        saveImportedPuzzles(puzzles)
-      }
+        saveImportedPuzzles(shuffled)
+        return shuffled
+      })
 
       setAnalysisData({
-        puzzles,
+        puzzles: [], // will be read from streamedPuzzles
         blunders: result.blunders,
         mistakes: result.mistakes,
         bestMoves: result.bestMovesFound.length,
@@ -340,6 +342,25 @@ export default function ImportPage() {
                   </p>
                 </>
               )}
+
+              {streamedPuzzles.length > 0 && (
+                <div className="mt-4 flex items-center justify-between rounded-lg border border-teal-500/20 bg-teal-500/5 p-4">
+                  <div>
+                    <span className="text-sm font-semibold text-teal-400">
+                      {streamedPuzzles.length} puzzle{streamedPuzzles.length > 1 ? 's' : ''} ready!
+                    </span>
+                    <p className="text-xs text-slate-500">
+                      Start training while we finish analyzing
+                    </p>
+                  </div>
+                  <Link
+                    href="/train"
+                    className="rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
+                  >
+                    Start Training →
+                  </Link>
+                </div>
+              )}
             </div>
           </Section>
         )}
@@ -355,7 +376,7 @@ export default function ImportPage() {
               />
               <StatCard
                 label="Puzzles generated"
-                value={analysisData.puzzles.length}
+                value={streamedPuzzles.length}
                 color="teal"
               />
               <StatCard
@@ -370,7 +391,7 @@ export default function ImportPage() {
               <StatCard label="Mistakes" value={analysisData.mistakes} color="amber" />
             </div>
 
-            {analysisData.puzzles.length === 0 ? (
+            {streamedPuzzles.length === 0 ? (
               <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-5 text-sm text-slate-500">
                 No critical positions found in these games. Try importing more games
                 or adjusting the filters.
