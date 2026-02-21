@@ -1,6 +1,26 @@
 import { parsePgn, type ParsedGame } from './pgn-parser'
 
-const BASE_URL = 'https://api.chess.com/pub'
+// When running in the browser, COEP: require-corp blocks direct cross-origin
+// fetches to chess.com (they don't send Cross-Origin-Resource-Policy headers).
+// Route all calls through the Next.js proxy so the browser only sees a
+// same-origin response. On the server the direct URL is fine.
+const CHESS_COM_DIRECT = 'https://api.chess.com/pub'
+const CHESS_COM_PROXY = '/api/chesscom'
+
+function chessComUrl(path: string): string {
+  const base = typeof window === 'undefined' ? CHESS_COM_DIRECT : CHESS_COM_PROXY
+  return `${base}${path}`
+}
+
+/**
+ * Convert a full chess.com archive URL to our proxy equivalent.
+ * e.g. https://api.chess.com/pub/player/foo/games/2024/01
+ *      → /api/chesscom/player/foo/games/2024/01
+ */
+function proxyArchiveUrl(archiveUrl: string): string {
+  if (typeof window === 'undefined') return archiveUrl
+  return archiveUrl.replace(CHESS_COM_DIRECT, CHESS_COM_PROXY)
+}
 
 // ── Response types ───────────────────────────────────────────────────────────
 
@@ -118,28 +138,28 @@ function sleep(ms: number): Promise<void> {
 /** Fetch a player's public profile. */
 export async function fetchPlayerProfile(username: string): Promise<ChessComPlayer> {
   return apiFetch<ChessComPlayer>(
-    `${BASE_URL}/player/${encodeURIComponent(username.toLowerCase())}`
+    chessComUrl(`/player/${encodeURIComponent(username.toLowerCase())}`)
   )
 }
 
 /** Fetch a player's rating stats across all time controls. */
 export async function fetchPlayerStats(username: string): Promise<ChessComStats> {
   return apiFetch<ChessComStats>(
-    `${BASE_URL}/player/${encodeURIComponent(username.toLowerCase())}/stats`
+    chessComUrl(`/player/${encodeURIComponent(username.toLowerCase())}/stats`)
   )
 }
 
 /** Fetch the list of monthly archive URLs for a player. */
 export async function fetchGameArchives(username: string): Promise<string[]> {
   const result = await apiFetch<{ archives: string[] }>(
-    `${BASE_URL}/player/${encodeURIComponent(username.toLowerCase())}/games/archives`
+    chessComUrl(`/player/${encodeURIComponent(username.toLowerCase())}/games/archives`)
   )
   return result.archives
 }
 
 /** Fetch all games from a monthly archive URL. */
 export async function fetchGamesForArchive(archiveUrl: string): Promise<ChessComGame[]> {
-  const result = await apiFetch<{ games: ChessComGame[] }>(archiveUrl)
+  const result = await apiFetch<{ games: ChessComGame[] }>(proxyArchiveUrl(archiveUrl))
   return result.games
 }
 

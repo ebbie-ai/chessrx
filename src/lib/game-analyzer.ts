@@ -1,9 +1,11 @@
 /**
  * game-analyzer.ts
  *
- * Browser-only module: creates a Stockfish Web Worker and analyzes chess
- * positions from imported games to find blunders and missed tactics.
+ * Browser-only module: loads Stockfish 18 WASM (via @lichess-org/stockfish-web,
+ * sf_18_smallnet variant) and analyzes chess positions from imported games to
+ * find blunders and missed tactics.
  *
+ * Requires COOP/COEP headers to be set (SharedArrayBuffer / PROXY_TO_PTHREAD).
  * Only import this from 'use client' components.
  */
 
@@ -13,7 +15,15 @@ import type { ChessComGame } from './chesscom-api'
 import type { Puzzle, Difficulty } from '@/types/puzzle'
 import { formatPgnDate } from './pgn-parser'
 
-const STOCKFISH_PATH = '/stockfish/stockfish-lite-single.js'
+// ── Stockfish 18 module interface ────────────────────────────────────────────
+
+interface StockfishWebModule {
+  uci(command: string): void
+  setNnueBuffer(data: Uint8Array, index?: number): void
+  getRecommendedNnue(index?: number): string
+  listen: (data: string) => void
+  onError: (msg: string) => void
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,38 +96,102 @@ export interface AnalyzerOptions {
   onPuzzleFound?: (puzzle: CriticalPosition) => void
 }
 
-// ── Stockfish worker manager ─────────────────────────────────────────────────
+// ── Runtime module loader ────────────────────────────────────────────────────
 
+/**
+ * Load a JS module from a runtime URL, bypassing TypeScript module resolution
+ * and webpack static analysis. Uses new Function to avoid webpack bundling the
+ * path; the webpackIgnore magic comment is embedded in the function string.
+ */
+function loadRuntimeModule<T = { default: unknown }>(url: string): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  return new Function('u', 'return import(/* webpackIgnore: true */ u)')(url) as Promise<T>
+}
+
+// ── Stockfish 18 manager ─────────────────────────────────────────────────────
+
+/**
+ * Loads Stockfish 18 (sf_18_smallnet) via Emscripten PROXY_TO_PTHREAD pattern.
+ *
+ * The JS file is served from /public/stockfish/ and dynamically imported so
+ * that webpack never bundles it (it uses its own dynamic import() for workers).
+ * SharedArrayBuffer availability is gated by COOP/COEP headers (set in
+ * next.config.js). The NNUE file is fetched from /stockfish/ and passed to
+ * setNnueBuffer() before the engine is marked ready.
+ */
 class StockfishManager {
-  private worker: Worker | null = null
+  private sf: StockfishWebModule | null = null
   private ready = false
 
   async initialize(): Promise<void> {
-    this.worker = new Worker(STOCKFISH_PATH)
+    // Dynamic import — /* webpackIgnore: true */ prevents webpack from touching
+    // this import; the browser fetches it natively so import.meta.url is correct.
+    type Sf18Factory = (arg: Partial<StockfishWebModule> & { wasmMemory?: WebAssembly.Memory }) => Promise<StockfishWebModule>
+    const mod = await loadRuntimeModule<{ default: Sf18Factory }>('/stockfish/sf_18_smallnet.js')
 
+    // Shared memory required by Emscripten PROXY_TO_PTHREAD.
+    // Values match what lichess uses: initial 1536 pages (96 MB), max 32767 pages (2 GB).
+    const wasmMemory = new WebAssembly.Memory({ shared: true, initial: 1536, maximum: 32767 })
+
+    this.sf = await mod.default({ wasmMemory })
+
+    // ── Phase 1: send "uci", wait for "uciok", then load NNUE ───────────────
     await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Stockfish init timeout')), 30_000)
+      const timeout = setTimeout(() => {
+        this.sf!.listen = () => {}
+        reject(new Error('Stockfish uciok timeout'))
+      }, 30_000)
 
-      const handler = (e: MessageEvent<string>) => {
-        if (e.data === 'readyok') {
+      this.sf!.listen = (line: string) => {
+        if (line === 'uciok') {
           clearTimeout(timeout)
-          this.worker!.removeEventListener('message', handler)
+          this.sf!.listen = () => {}
+          resolve()
+        }
+      }
+      this.sf!.onError = (msg: string) => console.error('[SF18]', msg)
+      this.sf!.uci('uci')
+    })
+
+    // ── Phase 2: load the NNUE network ───────────────────────────────────────
+    const nnueName = this.sf.getRecommendedNnue()
+    console.log(`[SF18] Loading NNUE: ${nnueName}`)
+    try {
+      const nnueResp = await fetch(`/stockfish/${nnueName}`)
+      if (!nnueResp.ok) throw new Error(`HTTP ${nnueResp.status}`)
+      const nnueBuf = new Uint8Array(await nnueResp.arrayBuffer())
+      this.sf.setNnueBuffer(nnueBuf)
+      console.log(`[SF18] NNUE loaded (${(nnueBuf.byteLength / 1024 / 1024).toFixed(1)} MB)`)
+    } catch (err) {
+      // SF works without NNUE (classical eval), just weaker. Log and continue.
+      console.warn('[SF18] NNUE load failed — continuing without network eval:', err)
+    }
+
+    // ── Phase 3: configure and wait for "readyok" ────────────────────────────
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.sf!.listen = () => {}
+        reject(new Error('Stockfish readyok timeout'))
+      }, 30_000)
+
+      this.sf!.listen = (line: string) => {
+        if (line === 'readyok') {
+          clearTimeout(timeout)
+          this.sf!.listen = () => {}
           this.ready = true
           resolve()
         }
       }
-      this.worker!.addEventListener('message', handler)
-
-      this.worker!.postMessage('uci')
-      this.worker!.postMessage('setoption name Threads value 1')
-      this.worker!.postMessage('setoption name Hash value 16')
-      this.worker!.postMessage('isready')
+      // Use 4 threads; SF18 multi-threaded analysis is significantly stronger.
+      this.sf!.uci('setoption name Threads value 4')
+      this.sf!.uci('setoption name Hash value 32')
+      this.sf!.uci('isready')
     })
   }
 
   analyzePosition(fen: string, depth: number): Promise<PositionEval> {
     return new Promise((resolve, reject) => {
-      if (!this.worker || !this.ready) {
+      if (!this.sf || !this.ready) {
         reject(new Error('Stockfish not initialized'))
         return
       }
@@ -126,12 +200,11 @@ class StockfishManager {
       let bestMove = ''
 
       const timeout = setTimeout(() => {
-        this.worker?.removeEventListener('message', handler)
+        this.sf!.listen = () => {}
         reject(new Error(`Analysis timeout for FEN: ${fen}`))
       }, 30_000)
 
-      const handler = (e: MessageEvent<string>) => {
-        const line = e.data
+      this.sf.listen = (line: string) => {
         if (!line) return
 
         if (line.startsWith('info') && line.includes('score')) {
@@ -154,7 +227,7 @@ class StockfishManager {
 
         if (line.startsWith('bestmove')) {
           clearTimeout(timeout)
-          this.worker!.removeEventListener('message', handler)
+          this.sf!.listen = () => {}
           const bm = line.split(' ')[1]
           if (bm !== undefined && bm !== '(none)') bestMove = bm
           // Stockfish reports score from side-to-move's perspective.
@@ -165,17 +238,17 @@ class StockfishManager {
         }
       }
 
-      this.worker.addEventListener('message', handler)
-      this.worker.postMessage('stop')
-      this.worker.postMessage('ucinewgame')
-      this.worker.postMessage(`position fen ${fen}`)
-      this.worker.postMessage(`go depth ${depth}`)
+      this.sf.uci('stop')
+      this.sf.uci('ucinewgame')
+      this.sf.uci(`position fen ${fen}`)
+      this.sf.uci(`go depth ${depth}`)
     })
   }
 
   terminate(): void {
-    this.worker?.terminate()
-    this.worker = null
+    // SF18 / Emscripten workers are self-managing; we just drop the reference.
+    // The engine continues running until the page unloads.
+    this.sf = null
     this.ready = false
   }
 }

@@ -196,8 +196,9 @@ describe('fetchPlayerProfile', () => {
 
     const result = await fetchPlayerProfile('btakashi444')
     expect(result.username).toBe('btakashi444')
+    // In browser context (jsdom) calls go through the Next.js proxy route
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
-      'https://api.chess.com/pub/player/btakashi444',
+      '/api/chesscom/player/btakashi444',
       expect.objectContaining({ headers: { Accept: 'application/json' } })
     )
   })

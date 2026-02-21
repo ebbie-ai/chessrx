@@ -1,10 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Required for chess-related WASM (Stockfish)
-  // and to allow cross-origin worker if you host stockfish from CDN
+  // COOP/COEP headers are required for SharedArrayBuffer, which Stockfish 18
+  // (PROXY_TO_PTHREAD / Emscripten) needs for multi-threaded analysis.
   async headers() {
-    return []
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+        ],
+      },
+    ]
   },
   webpack: (config) => {
     // Allow WASM files
